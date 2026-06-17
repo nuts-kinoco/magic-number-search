@@ -74,7 +74,13 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   const selectedText = info.selectionText ? info.selectionText.trim() : "";
 
   if (info.menuItemId === "searchMagicNumber" && selectedText) {
-    executeSearch(selectedText, tab);
+    // 選択されたテキストを空白、改行、カンマ等で分割
+    const tokens = selectedText.split(/[\s,/\n\r]+/).filter(t => t.trim() !== "");
+    if (tokens.length > 0) {
+      tokens.forEach(token => executeSearch(token, tab));
+    } else {
+      executeSearch(selectedText, tab);
+    }
   } 
   else if (info.menuItemId === "toggleFavorite" && selectedText) {
     toggleFavorite(selectedText, tab);
