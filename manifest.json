@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "魔法の数字検索",
+  "version": "1.0.0",
+  "author": "nat",
+  "description": "選択した魔法の数字（作品番号）からGoogle検索をワンクリックで実行します。",
+  "permissions": [
+    "contextMenus",
+    "storage",
+    "tabs"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_page": "options.html",
+  "action": {
+    "default_title": "魔法の数字検索",
+    "default_icon": {
+      "16": "icons/icon.png",
+      "48": "icons/icon.png",
+      "128": "icons/icon.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon.png",
+    "48": "icons/icon.png",
+    "128": "icons/icon.png"
+  }
+}
