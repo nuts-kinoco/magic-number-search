@@ -1,31 +1,50 @@
 // 初期化・メニュー作成関数
 function createContextMenu() {
   chrome.contextMenus.removeAll(() => {
-    // 親メニュー
-    chrome.contextMenus.create({
-      id: "magicNumberParent",
-      title: "◆ 魔法の数字",
-      contexts: ["selection", "page"]
-    });
+    chrome.storage.local.get({ searchEngines: [], favorites: [] }, (result) => {
+      let engines = result.searchEngines || [];
+      if (engines.length === 0) {
+        // 初期状態の検索エンジン設定（Google）
+        engines = [
+          { id: "google_search", name: "Google", url: "https://www.google.com/search?q=FC2-PPV-{query}+動画" }
+        ];
+        chrome.storage.local.set({ searchEngines: engines });
+      }
 
-    // 検索メニュー
-    chrome.contextMenus.create({
-      id: "searchMagicNumber",
-      parentId: "magicNumberParent",
-      title: "検索する: 「%s」",
-      contexts: ["selection"]
-    });
+      // 親メニュー
+      chrome.contextMenus.create({
+        id: "magicNumberParent",
+        title: "◆ 魔法の数字",
+        contexts: ["selection", "page"]
+      });
 
-    // お気に入り追加・削除
-    chrome.contextMenus.create({
-      id: "toggleFavorite",
-      parentId: "magicNumberParent",
-      title: "★ お気に入りに追加/削除: 「%s」",
-      contexts: ["selection"]
-    });
+      // 登録されている検索エンジンを並列表示
+      engines.forEach((engine) => {
+        chrome.contextMenus.create({
+          id: `searchMagic_${engine.id}`,
+          parentId: "magicNumberParent",
+          title: `${engine.name}で検索: 「%s」`,
+          contexts: ["selection"]
+        });
+      });
 
-    // お気に入りから検索（サブメニュー）
-    chrome.storage.local.get({ favorites: [] }, (result) => {
+      // 検索エンジンとお気に入りの間の区切り線（選択時のみ表示）
+      chrome.contextMenus.create({
+        id: "separator_search",
+        parentId: "magicNumberParent",
+        type: "separator",
+        contexts: ["selection"]
+      });
+
+      // お気に入り追加・削除
+      chrome.contextMenus.create({
+        id: "toggleFavorite",
+        parentId: "magicNumberParent",
+        title: "★ お気に入りに追加/削除: 「%s」",
+        contexts: ["selection"]
+      });
+
+      // お気に入りから検索（サブメニュー）
       const favorites = result.favorites || [];
       if (favorites.length > 0) {
         chrome.contextMenus.create({
@@ -73,14 +92,25 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   const selectedText = info.selectionText ? info.selectionText.trim() : "";
 
-  if (info.menuItemId === "searchMagicNumber" && selectedText) {
-    // 選択されたテキストを空白、改行、カンマ等で分割
-    const tokens = selectedText.split(/[\s,/\n\r]+/).filter(t => t.trim() !== "");
-    if (tokens.length > 0) {
-      tokens.forEach(token => executeSearch(token, tab));
-    } else {
-      executeSearch(selectedText, tab);
-    }
+  if (typeof info.menuItemId === "string" && info.menuItemId.startsWith("searchMagic_") && selectedText) {
+    const engineId = info.menuItemId.replace("searchMagic_", "");
+    chrome.storage.local.get({ searchEngines: [] }, (result) => {
+      const engines = result.searchEngines || [];
+      const engine = engines.find(e => e.id === engineId) || { name: "Google", url: "https://www.google.com/search?q=FC2-PPV-{query}+動画" };
+      
+      const tokens = selectedText.split(/[\s,/\n\r]+/).filter(t => t.trim() !== "");
+      if (tokens.length > 0) {
+        tokens.forEach(token => {
+          const searchUrl = engine.url.replace("{query}", encodeURIComponent(token));
+          chrome.tabs.create({ url: searchUrl });
+          saveSearchHistory(token, searchUrl, tab);
+        });
+      } else {
+        const searchUrl = engine.url.replace("{query}", encodeURIComponent(selectedText));
+        chrome.tabs.create({ url: searchUrl });
+        saveSearchHistory(selectedText, searchUrl, tab);
+      }
+    });
   } 
   else if (info.menuItemId === "toggleFavorite" && selectedText) {
     toggleFavorite(selectedText, tab);
@@ -90,7 +120,13 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   }
   else if (typeof info.menuItemId === "string" && info.menuItemId.startsWith("favSearch_")) {
     const favText = info.menuItemId.replace("favSearch_", "");
-    executeSearch(favText, tab);
+    chrome.storage.local.get({ searchEngines: [] }, (result) => {
+      const engines = result.searchEngines || [];
+      const engine = engines[0] || { url: "https://www.google.com/search?q=FC2-PPV-{query}+動画" };
+      const searchUrl = engine.url.replace("{query}", encodeURIComponent(favText));
+      chrome.tabs.create({ url: searchUrl });
+      saveSearchHistory(favText, searchUrl, tab);
+    });
   }
 });
 
@@ -100,13 +136,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     createContextMenu();
   }
 });
-
-function executeSearch(text, tab) {
-  const searchQuery = `FC2-PPV-${text} 動画`;
-  const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`;
-  chrome.tabs.create({ url: searchUrl });
-  saveSearchHistory(text, searchUrl, tab);
-}
 
 function toggleFavorite(text, tab) {
   chrome.storage.local.get({ favorites: [] }, (result) => {

@@ -31,6 +31,7 @@
     <div class="tabs">
       <div class="tab active" data-target="favorites-tab">★ お気に入り</div>
       <div class="tab" data-target="history-tab">■ 検索履歴</div>
+      <div class="tab" data-target="engines-tab">🔍 検索設定</div>
     </div>
 
     <!-- お気に入りタブ -->
@@ -56,6 +57,35 @@
       <button id="downloadHistBtn">検索履歴をCSVで出力</button>
       <button id="clearHistBtn" class="btn-danger">履歴をすべて削除</button>
       <p class="status" id="histStatus"></p>
+    </div>
+
+    <!-- 検索設定タブ -->
+    <div id="engines-tab" class="tab-content">
+      <p>右クリックメニューに表示する検索サイトを設定します（最大5個まで登録可能）。</p>
+      
+      <!-- 新規追加フォーム -->
+      <div style="background: #f6f8fa; padding: 15px; border-radius: 6px; border: 1px solid #ddd; margin-bottom: 20px;">
+        <h3 style="margin-top: 0; font-size: 1.1em; color: #333;">検索サイトの追加</h3>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+          <input type="text" id="engineNameInput" placeholder="サイト名（例: 動画Wiki）" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; flex: 1; min-width: 150px;">
+          <input type="text" id="engineUrlInput" placeholder="検索URL（例: https://example.com/?q={query}）" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; flex: 2; min-width: 300px;">
+          <button id="addEngineBtn">追加する</button>
+        </div>
+        <small style="color: #666;">※ 検索キーワード（魔法の数字）が入る部分には <strong><code>{query}</code></strong> と記述してください。</small>
+      </div>
+
+      <!-- 検索エンジン一覧 -->
+      <table id="engineTable">
+        <thead>
+          <tr>
+            <th>表示名</th>
+            <th>検索URLテンプレート</th>
+            <th style="width: 100px; text-align: center;">操作</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <p class="status" id="engineStatus"></p>
     </div>
 
   </div>

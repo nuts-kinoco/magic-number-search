@@ -10,12 +10,14 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   loadFavorites();
+  loadSearchEngines();
 
   // イベントリスナーの登録
   document.getElementById('downloadFavBtn').addEventListener('click', downloadFavoritesCsv);
   document.getElementById('clearFavBtn').addEventListener('click', clearFavorites);
   document.getElementById('downloadHistBtn').addEventListener('click', downloadHistoryCsv);
   document.getElementById('clearHistBtn').addEventListener('click', clearHistory);
+  document.getElementById('addEngineBtn').addEventListener('click', addSearchEngine);
 });
 
 function loadFavorites() {
@@ -149,4 +151,124 @@ function triggerDownload(csvContent, prefix) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+function loadSearchEngines() {
+  chrome.storage.local.get({ searchEngines: [] }, (result) => {
+    const tbody = document.querySelector('#engineTable tbody');
+    tbody.innerHTML = '';
+    const engines = result.searchEngines || [];
+
+    if (engines.length === 0) {
+      // 初期表示時はデフォルトのGoogleを設定
+      const defaultEngines = [
+        { id: "google_search", name: "Google", url: "https://www.google.com/search?q=FC2-PPV-{query}+動画" }
+      ];
+      chrome.storage.local.set({ searchEngines: defaultEngines }, () => {
+        loadSearchEngines();
+      });
+      return;
+    }
+
+    engines.forEach((engine, index) => {
+      const tr = document.createElement('tr');
+
+      const tdName = document.createElement('td');
+      tdName.textContent = engine.name;
+      tdName.style.fontWeight = 'bold';
+
+      const tdUrl = document.createElement('td');
+      tdUrl.textContent = engine.url;
+
+      const tdAction = document.createElement('td');
+      tdAction.className = 'action-cell';
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '削除';
+      delBtn.className = 'btn-danger';
+      delBtn.style.padding = '4px 8px';
+      delBtn.addEventListener('click', () => {
+        removeSearchEngine(index);
+      });
+      tdAction.appendChild(delBtn);
+
+      tr.appendChild(tdName);
+      tr.appendChild(tdUrl);
+      tr.appendChild(tdAction);
+      tbody.appendChild(tr);
+    });
+
+    const statusText = document.getElementById('engineStatus');
+    const addBtn = document.getElementById('addEngineBtn');
+    if (engines.length >= 5) {
+      statusText.textContent = '※ 最大登録数（5個）に達したため、これ以上追加できません。';
+      statusText.style.color = '#d73a49';
+      addBtn.disabled = true;
+      addBtn.style.opacity = '0.5';
+      addBtn.style.cursor = 'not-allowed';
+    } else {
+      statusText.textContent = '';
+      addBtn.disabled = false;
+      addBtn.style.opacity = '1';
+      addBtn.style.cursor = 'pointer';
+    }
+  });
+}
+
+function removeSearchEngine(index) {
+  chrome.storage.local.get({ searchEngines: [] }, (result) => {
+    let engines = result.searchEngines || [];
+    engines.splice(index, 1);
+    chrome.storage.local.set({ searchEngines: engines }, () => {
+      loadSearchEngines();
+      chrome.runtime.sendMessage({ action: "updateMenu" }).catch(() => {});
+    });
+  });
+}
+
+function addSearchEngine() {
+  const nameInput = document.getElementById('engineNameInput');
+  const urlInput = document.getElementById('engineUrlInput');
+  const name = nameInput.value.trim();
+  const url = urlInput.value.trim();
+
+  if (!name || !url) {
+    alert('表示名と検索URLを入力してください。');
+    return;
+  }
+
+  if (!url.includes('{query}')) {
+    alert('検索URLテンプレートには必ず {query} を含めてください。');
+    return;
+  }
+
+  chrome.storage.local.get({ searchEngines: [] }, (result) => {
+    let engines = result.searchEngines || [];
+    if (engines.length >= 5) {
+      alert('検索エンジンは最大5個までしか登録できません。');
+      return;
+    }
+
+    const newEngine = {
+      id: 'custom_' + Date.now(),
+      name: name,
+      url: url
+    };
+
+    engines.push(newEngine);
+    chrome.storage.local.set({ searchEngines: engines }, () => {
+      nameInput.value = '';
+      urlInput.value = '';
+      loadSearchEngines();
+      chrome.runtime.sendMessage({ action: "updateMenu" }).catch(() => {});
+      
+      const statusText = document.getElementById('engineStatus');
+      statusText.textContent = '検索サイトを追加しました。';
+      statusText.style.color = '#2ea44f';
+      setTimeout(() => {
+        if (statusText.textContent === '検索サイトを追加しました。') {
+          statusText.textContent = '';
+        }
+      }, 3000);
+    });
+  });
 }
